@@ -1,7 +1,12 @@
-import { ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from "@nestjs/common";
 
 import { LoginDto, SignUpDto } from "./dto";
-import { Response } from "express";
+import { Request, Response } from "express";
 
 import * as argon from "argon2";
 
@@ -16,13 +21,6 @@ export class AuthService {
     private prisma: PrismaService,
     private jwt: JwtService
   ) {}
-
-  async createToken(userId: number, email: string) {
-    return await this.jwt.signAsync({
-      userId,
-      email,
-    });
-  }
 
   async signup(signupDto: SignUpDto, res: Response) {
     try {
@@ -45,11 +43,13 @@ export class AuthService {
         },
       });
 
-      res.cookie("jwt", this.createToken(user.userId, user.email), {
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-        secure: true,
-        sameSite: "none",
-      });
+      res.cookie(
+        "jwt",
+        await this.jwt.signAsync({
+          userId: user.userId,
+          email: user.email,
+        })
+      );
 
       return { user: user };
     } catch (error) {
@@ -84,25 +84,54 @@ export class AuthService {
         throw new UnauthorizedException("Password Incorrect");
       }
 
-      res.cookie("jwt", this.createToken(user.userId, user.email), {
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-        secure: true,
-        sameSite: "none",
-      });
+      res.cookie(
+        "jwt",
+        await this.jwt.signAsync({
+          userId: user.userId,
+          email: user.email,
+        })
+      );
 
-      return { user: {
-        userId: user.userId,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        profilePic: user.profilePic,
-        guestStatus: user.guestStatus,
-      } };
+      return {
+        user: {
+          userId: user.userId,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          profilePic: user.profilePic,
+          guestStatus: user.guestStatus,
+        },
+      };
     } catch (error) {
       if (error.code === "P2025") {
         throw new NotFoundException("User with the given email not found");
       } else if (error.response.statusCode === 401) {
         throw new UnauthorizedException("Password Incorrect");
+      }
+    }
+  }
+
+  async userInfo(req: Request) {
+    try {
+      const user = await this.prisma.user.findUniqueOrThrow({
+        where: {
+          email: req.body.user.email,
+        },
+        select: {
+          userId: true,
+          email: true,
+          password: true,
+          firstName: true,
+          lastName: true,
+          profilePic: true,
+          guestStatus: true,
+        },
+      });
+
+      return { user: user };
+    } catch (error) {
+      if (error.code === "P2025") {
+        throw new NotFoundException("User with the given email not found");
       }
     }
   }

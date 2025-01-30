@@ -12,13 +12,15 @@ export class AuthMiddleWare implements NestMiddleware {
 
   async use(req: Request, res: Response, next: NextFunction) {
     const token = req.cookies.jwt;
-    const verify = await this.jwt.verifyAsync(token);
 
-    if (verify) {
+    if (token) {
+      const verify = await this.jwt.verifyAsync(token);
+
       req.body.user = {
         userId: verify.userId,
         email: verify.email,
       };
+
       next();
     } else throw new UnauthorizedException("You are not authorized");
   }
