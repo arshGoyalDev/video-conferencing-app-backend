@@ -1,11 +1,12 @@
 import {
   ForbiddenException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
   UnauthorizedException,
 } from "@nestjs/common";
 
-import { LoginDto, SignUpDto } from "./dto";
+import { LoginDto, SignUpDto, UpdateDetailsDto } from "./dto";
 import { Request, Response } from "express";
 
 import * as argon from "argon2";
@@ -133,6 +134,33 @@ export class AuthService {
       if (error.code === "P2025") {
         throw new NotFoundException("User with the given email not found");
       }
+    }
+  }
+
+  async updateDetails(req: Request, updateDetailsDto: UpdateDetailsDto) {
+    try {
+      const user = await this.prisma.user.updateManyAndReturn({
+        where: {
+          email: req.body.user.email,
+        },
+        data: {
+          firstName: updateDetailsDto.firstName,
+          lastName: updateDetailsDto.lastName,
+        },
+        select: {
+          userId: true,
+          email: true,
+          password: true,
+          firstName: true,
+          lastName: true,
+          profilePic: true,
+          guestStatus: true,
+        },
+      });
+
+      return { user: user };
+    } catch (error) {
+      throw new InternalServerErrorException("Internal Server Error");
     }
   }
 }
