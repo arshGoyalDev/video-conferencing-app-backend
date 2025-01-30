@@ -163,4 +163,25 @@ export class AuthService {
       throw new InternalServerErrorException("Internal Server Error");
     }
   }
+
+  async logout(res: Response) {
+    try {
+      res.cookie("jwt", "", { maxAge: 1, secure: true, sameSite: "none" });
+      return { logoutMsg: "Logout Successful" };
+    } catch (error) {
+      throw new InternalServerErrorException("Internal Server Error");
+    }
+  }
+
+  async deleteUser(req: Request, res: Response) {
+    try {
+      await this.prisma.user.delete({
+        where: { email: req.body.user.email },
+      });
+
+      res.cookie("jwt", "", { maxAge: 1, sameSite: "none", secure: true });
+    } catch (error) {
+      throw new InternalServerErrorException("Internal Server Error");
+    }
+  }
 }

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req, Res } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Post, Req, Res } from "@nestjs/common";
 
 import { AuthService } from "./auth.service";
 
@@ -23,12 +23,25 @@ export class AuthController {
   }
 
   @Get("user-info")
-  userInfo(@Req() req:Request) {
+  userInfo(@Req() req: Request) {
     return this.authService.userInfo(req);
   }
 
   @Post("update-details")
-  updateDetails(@Req() req:Request, @Body() updateDetailsDto: UpdateDetailsDto) {
+  updateDetails(
+    @Req() req: Request,
+    @Body() updateDetailsDto: UpdateDetailsDto
+  ) {
     return this.authService.updateDetails(req, updateDetailsDto);
+  }
+
+  @Post("logout")
+  logout(@Res({ passthrough: true }) res: Response) {
+    return this.authService.logout(res);
+  }
+
+  @Delete("delete-user")
+  deleteUser(@Req() req: Request, @Res({passthrough: true}) res: Response) {
+    this.authService.deleteUser(req, res);
   }
 }
