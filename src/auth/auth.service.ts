@@ -1,5 +1,7 @@
 import {
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -15,6 +17,8 @@ import { PrismaService } from "src/prisma/prisma.service";
 import { JwtService } from "@nestjs/jwt";
 
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
+import { existsSync, unlink, unlinkSync } from "fs";
+import { join } from "path";
 
 @Injectable()
 export class AuthService {
@@ -24,10 +28,10 @@ export class AuthService {
   ) {}
 
   async signup(signupDto: SignUpDto, res: Response) {
-    try {
-      const passwordHash = await argon.hash(signupDto.password);
+    const passwordHash = await argon.hash(signupDto.password);
 
-      const user = await this.prisma.user.create({
+    const user = await this.prisma.user
+      .create({
         data: {
           email: signupDto.email,
           password: passwordHash,
@@ -42,29 +46,25 @@ export class AuthService {
           profilePic: true,
           guestStatus: true,
         },
+      })
+      .catch(() => {
+        throw new ForbiddenException("Credentials already taken");
       });
 
-      res.cookie(
-        "jwt",
-        await this.jwt.signAsync({
-          userId: user.userId,
-          email: user.email,
-        })
-      );
+    res.cookie(
+      "jwt",
+      await this.jwt.signAsync({
+        userId: user.userId,
+        email: user.email,
+      })
+    );
 
-      return { user: user };
-    } catch (error) {
-      if (error instanceof PrismaClientKnownRequestError) {
-        if (error.code === "P2002") {
-          throw new ForbiddenException("Credentials already taken");
-        }
-      }
-    }
+    return { user };
   }
 
   async login(loginDto: LoginDto, res: Response) {
-    try {
-      const user = await this.prisma.user.findUniqueOrThrow({
+    const user = await this.prisma.user
+      .findUniqueOrThrow({
         where: {
           email: loginDto.email,
         },
@@ -77,46 +77,42 @@ export class AuthService {
           profilePic: true,
           guestStatus: true,
         },
+      })
+      .catch(() => {
+        throw new NotFoundException("User with the given email not found");
       });
 
-      const auth = await argon.verify(user.password, loginDto.password);
+    const auth = await argon.verify(user.password, loginDto.password);
 
-      if (!auth) {
-        throw new UnauthorizedException("Password Incorrect");
-      }
-
-      res.cookie(
-        "jwt",
-        await this.jwt.signAsync({
-          userId: user.userId,
-          email: user.email,
-        })
-      );
-
-      return {
-        user: {
-          userId: user.userId,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          profilePic: user.profilePic,
-          guestStatus: user.guestStatus,
-        },
-      };
-    } catch (error) {
-      if (error.code === "P2025") {
-        throw new NotFoundException("User with the given email not found");
-      } else if (error.response.statusCode === 401) {
-        throw new UnauthorizedException("Password Incorrect");
-      }
+    if (!auth) {
+      throw new UnauthorizedException("Password Incorrect");
     }
+
+    res.cookie(
+      "jwt",
+      await this.jwt.signAsync({
+        userId: user.userId,
+        email: user.email,
+      })
+    );
+
+    return {
+      user: {
+        userId: user.userId,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        profilePic: user.profilePic,
+        guestStatus: user.guestStatus,
+      },
+    };
   }
 
   async userInfo(req: Request) {
-    try {
-      const user = await this.prisma.user.findUniqueOrThrow({
+    const user = await this.prisma.user
+      .findUniqueOrThrow({
         where: {
-          email: req.body.user.email,
+          email: req["user"].email,
         },
         select: {
           userId: true,
@@ -127,21 +123,19 @@ export class AuthService {
           profilePic: true,
           guestStatus: true,
         },
+      })
+      .catch(() => {
+        throw new NotFoundException("User with the given email not found");
       });
 
-      return { user: user };
-    } catch (error) {
-      if (error.code === "P2025") {
-        throw new NotFoundException("User with the given email not found");
-      }
-    }
+    return { user };
   }
 
   async updateDetails(req: Request, updateDetailsDto: UpdateDetailsDto) {
     try {
       const user = await this.prisma.user.updateManyAndReturn({
         where: {
-          email: req.body.user.email,
+          email: req["user"].email,
         },
         data: {
           firstName: updateDetailsDto.firstName,
@@ -158,7 +152,7 @@ export class AuthService {
         },
       });
 
-      return { user: user };
+      return { user };
     } catch (error) {
       throw new InternalServerErrorException("Internal Server Error");
     }
@@ -167,21 +161,121 @@ export class AuthService {
   async logout(res: Response) {
     try {
       res.cookie("jwt", "", { maxAge: 1, secure: true, sameSite: "none" });
+
       return { logoutMsg: "Logout Successful" };
     } catch (error) {
       throw new InternalServerErrorException("Internal Server Error");
     }
   }
 
-  async deleteUser(req: Request, res: Response) {
+  //   async deleteUser(req: Request, res: Response) {
+  //     try {
+  //       await this.prisma.user.delete({
+  //         where: { email: req.user.email },
+  //       });
+
+  //       res.cookie("jwt", "", { maxAge: 1, sameSite: "none", secure: true });
+  //     } catch (error) {
+  //       throw new InternalServerErrorException("Internal Server Error");
+  //     }
+  //   }
+
+  async addProfilePic(req: Request, profilePic: Express.Multer.File) {
     try {
-      await this.prisma.user.delete({
-        where: { email: req.body.user.email },
+      console.log(profilePic);
+      const user = await this.prisma.user.update({
+        where: {
+          email: req["user"].email,
+        },
+        data: {
+          profilePic: `/auth/${profilePic.filename}`,
+        },
+        select: {
+          userId: true,
+          email: true,
+          password: true,
+          firstName: true,
+          lastName: true,
+          profilePic: true,
+          guestStatus: true,
+        },
       });
 
-      res.cookie("jwt", "", { maxAge: 1, sameSite: "none", secure: true });
+      return { user };
     } catch (error) {
+      console.log(error);
       throw new InternalServerErrorException("Internal Server Error");
     }
   }
+
+  async removeProfilePic(req: Request) {
+    try {
+      const userData = await this.prisma.user.findUniqueOrThrow({
+        where: {
+          email: req["user"].email,
+        },
+        select: {
+          profilePic: true,
+        },
+      });
+
+      const filePath = join(
+        process.cwd(),
+        "uploads/auth",
+        userData.profilePic.split("/").at(-1)
+      );
+
+      if (!existsSync(filePath)) {
+        throw new HttpException("Profile Pic not found", HttpStatus.NOT_FOUND);
+      }
+
+      unlinkSync(filePath);
+
+      const user = await this.prisma.user.update({
+        where: {
+          email: req["user"].email,
+        },
+        data: {
+          profilePic: "",
+        },
+        select: {
+          userId: true,
+          email: true,
+          password: true,
+          firstName: true,
+          lastName: true,
+          profilePic: true,
+          guestStatus: true,
+        },
+      });
+
+      return { user };
+    } catch (error) {
+      console.log(error);
+      throw new InternalServerErrorException("Internal Server Error");
+    }
+  }
+
+  // @Delete(':filename')
+  // async deleteFile(@Param('filename') filename: string) {
+  // const filePath = join(process.cwd(), 'uploads', filename);
+
+  // // Check if file exists
+  // if (!existsSync(filePath)) {
+  //   throw new HttpException('File not found', HttpStatus.NOT_FOUND);
+  // }
+
+  // try {
+  //   await unlink(filePath);
+  //   return {
+  //     message: 'File deleted successfully',
+  //     filename: filename
+  //   };
+  // } catch (error) {
+  //   throw new HttpException(
+  //     'Error deleting file',
+  //     HttpStatus.INTERNAL_SERVER_ERROR
+  //   );
+  // }
+  // }
 }

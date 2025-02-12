@@ -9,4 +9,4 @@ class UpdateDetailsDto {
   lastName: string;
 }
 
-export {UpdateDetailsDto}
+export { UpdateDetailsDto };

@@ -16,7 +16,7 @@ export class AuthMiddleWare implements NestMiddleware {
     if (token) {
       const verify = await this.jwt.verifyAsync(token);
 
-      req.body.user = {
+      req["user"] = {
         userId: verify.userId,
         email: verify.email,
       };

@@ -1,9 +1,27 @@
-import { Body, Controller, Delete, Get, Post, Req, Res } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Req,
+  Res,
+  UploadedFile,
+  UseInterceptors,
+} from "@nestjs/common";
 
 import { AuthService } from "./auth.service";
 
 import { LoginDto, SignUpDto, UpdateDetailsDto } from "./dto";
+
 import { Request, Response } from "express";
+
+import { FileInterceptor } from "@nestjs/platform-express";
+
+import { extname } from "path/posix";
+
+import { diskStorage } from "multer";
+import { join } from "path";
 
 @Controller("auth")
 export class AuthController {
@@ -40,8 +58,27 @@ export class AuthController {
     return this.authService.logout(res);
   }
 
-  @Delete("delete-user")
-  deleteUser(@Req() req: Request, @Res({passthrough: true}) res: Response) {
-    this.authService.deleteUser(req, res);
+  // @Delete("delete-user")
+  // deleteUser(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+  //   this.authService.deleteUser(req, res);
+  // }
+
+  @Post("add-profile-pic")
+  @UseInterceptors(FileInterceptor("profile-pic"))
+  async addProfilePic(
+    @Req() req: Request,
+    @UploadedFile() profilePic: Express.Multer.File
+  ) {
+    return this.authService.addProfilePic(req, profilePic);
+  }
+
+  @Get(":profilePic")
+  async getFile(@Param("profilePic") profilePic: string, @Res() res: Response) {
+    return res.sendFile(join(process.cwd(), "uploads/auth", profilePic));
+  }
+
+  @Post("remove-profile-pic")
+  async removeProfilePic(@Req() req: Request) {
+    return this.authService.removeProfilePic(req);
   }
 }
