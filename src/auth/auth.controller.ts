@@ -18,9 +18,6 @@ import { Request, Response } from "express";
 
 import { FileInterceptor } from "@nestjs/platform-express";
 
-import { extname } from "path/posix";
-
-import { diskStorage } from "multer";
 import { join } from "path";
 
 @Controller("auth")

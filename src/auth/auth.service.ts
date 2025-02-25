@@ -16,8 +16,7 @@ import * as argon from "argon2";
 import { PrismaService } from "src/prisma/prisma.service";
 import { JwtService } from "@nestjs/jwt";
 
-import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
-import { existsSync, unlink, unlinkSync } from "fs";
+import { existsSync, unlinkSync } from "fs";
 import { join } from "path";
 
 @Injectable()
@@ -255,27 +254,4 @@ export class AuthService {
       throw new InternalServerErrorException("Internal Server Error");
     }
   }
-
-  // @Delete(':filename')
-  // async deleteFile(@Param('filename') filename: string) {
-  // const filePath = join(process.cwd(), 'uploads', filename);
-
-  // // Check if file exists
-  // if (!existsSync(filePath)) {
-  //   throw new HttpException('File not found', HttpStatus.NOT_FOUND);
-  // }
-
-  // try {
-  //   await unlink(filePath);
-  //   return {
-  //     message: 'File deleted successfully',
-  //     filename: filename
-  //   };
-  // } catch (error) {
-  //   throw new HttpException(
-  //     'Error deleting file',
-  //     HttpStatus.INTERNAL_SERVER_ERROR
-  //   );
-  // }
-  // }
 }

@@ -20,5 +20,26 @@ model User {
 
   guestStatus Boolean @default(false)
 
+  meets Meet[]
+  adminMeets Meet[] @relation("MeetAdmin")
+
   @@map("users")
+}
+
+model Meet {
+  meetId String @id @unique
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members User[]
+
+  meetAdminId Int
+  meetAdmin   User @relation("MeetAdmin", fields: [meetAdminId], references: [userId])
+
+  allowVideo Boolean @default(true)
+  allowMic Boolean @default(true)
+  anyoneCanJoin Boolean @default(false)
+
+  @@map("meets")
 }
